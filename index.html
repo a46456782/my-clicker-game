@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>🥚 Фарм-Яйцо</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { overscroll-behavior: none; }
+  body {
+    font-family: -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    background: var(--tg-theme-bg-color, #fff);
+    color: var(--tg-theme-text-color, #100e17);
+    line-height: 1.5;
+    min-height: 100vh;
+    overflow-x: hidden;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .header {
+    background: linear-gradient(90deg, #ff5a01, #e61f71);
+    padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+    text-align: center;
+    color: #fff;
+  }
+  .header h1 { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.3px; }
+  .header p { font-size: 0.75rem; opacity: 0.9; margin-top: 2px; }
+  .container { max-width: 640px; margin: 0 auto; padding: 12px; }
+
+  .panel { background: #f8fafc; border-radius: 12px; padding: 14px; border: 1px solid #e2e8f0; margin-bottom: 12px; }
+  .panel h3 { font-size: 12px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .hidden { display: none !important; }
+
+  /* Профиль */
+  .profile {
+    display: flex; align-items: center; gap: 12px;
+    background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+    border-radius: 14px; padding: 12px;
+    border: 1px solid #c7d2fe;
+    margin-bottom: 12px;
+  }
+  .avatar {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #fff;
+    font-size: 22px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    position: relative;
+  }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .avatar .init { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .profile-info { flex: 1; min-width: 0; }
+  .profile-name { font-weight: 800; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .profile-meta { font-size: 12px; color: #6366f1; font-weight: 600; margin-top: 2px; }
+  .profile-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .profile-actions button {
+    padding: 8px 10px; border: none; border-radius: 8px;
+    background: #e61f71; color: #fff;
+    font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .profile-actions button.secondary { background: #fff; color: #e61f71; border: 1px solid #e61f71; }
+
+  /* Топ */
+  .lb-podium { display: flex; gap: 6px; margin-bottom: 10px; }
+  .lb-podium .pod {
+    flex: 1; text-align: center; padding: 10px 4px;
+    border-radius: 10px; background: #fff;
+    border: 2px solid #e2e8f0;
+    position: relative;
+  }
+  .lb-podium .pod.gold { border-color: #fbbf24; background: linear-gradient(180deg, #fffbeb, #fff); }
+  .lb-podium .pod.silver { border-color: #94a3b8; background: linear-gradient(180deg, #f1f5f9, #fff); }
+  .lb-podium .pod.bronze { border-color: #d97706; background: linear-gradient(180deg, #fef3c7, #fff); }
+  .lb-podium .pod .medal { font-size: 18px; display: block; margin-bottom: 2px; }
+  .lb-podium .pod .avatar { width: 40px; height: 40px; font-size: 16px; margin: 0 auto 4px; }
+  .lb-podium .pod .nick { font-weight: 800; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-podium .pod .money { font-size: 13px; font-weight: 800; color: #16a34a; }
+  .lb-podium .pod .stage { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+
+  #lb-list { list-style: none; max-height: 420px; overflow-y: auto; }
+  #lb-list li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 6px; border-bottom: 1px solid #e2e8f0;
+    font-size: 13px;
+  }
+  #lb-list li:last-child { border-bottom: none; }
+  #lb-list li.self { background: #fef3c7; border-radius: 8px; padding: 8px; }
+  #lb-list li .place {
+    width: 24px; text-align: center; font-weight: 800;
+    color: #94a3b8; flex-shrink: 0;
+  }
+  #lb-list li .place.top { color: #e61f71; }
+  #lb-list li .avatar { width: 34px; height: 34px; font-size: 14px; }
+  #lb-list li .info { flex: 1; min-width: 0; }
+  #lb-list li .nick { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #lb-list li .sub { font-size: 10px; color: #94a3b8; }
+  #lb-list li .money { font-weight: 800; color: #16a34a; white-space: nowrap; font-size: 13px; }
+
+  #lb-status { text-align: center; padding: 16px; color: #94a3b8; font-size: 12px; }
+  #lb-status.error { color: #dc2626; }
+
+  /* Яйцо */
+  .egg-hero {
+    background: radial-gradient(circle at 50% 20%, #fffbeb, #fef3c7 40%, #fde68a);
+    border-radius: 20px; padding: 12px 12px 10px; text-align: center;
+    margin-bottom: 12px; position: relative; overflow: hidden;
+  }
+  .egg-coins { font-size: 1.8rem; font-weight: 900; color: #1e293b; line-height: 1; margin-bottom: 2px; }
+  .egg-coins .unit { font-size: 1rem; }
+  .egg-rates { font-size: 11px; color: #475569; margin-bottom: 4px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .egg-rates b { color: #0ea5e9; }
+  .egg-rates .green b { color: #16a34a; }
+  .egg-rates .crit b { color: #dc2626; }
+
+  #egg-area { position: relative; }
+  #egg-wrap {
+    display: inline-block; width: 170px; height: 200px; cursor: pointer;
+    user-select: none; -webkit-user-select: none; position: relative;
+    touch-action: manipulation; transition: filter 0.2s;
+  }
+  #egg-svg { width: 100%; height: 100%; display: block; transform-origin: 50% 100%; }
+  #egg-group { transform-box: fill-box; transform-origin: center; }
+  #egg-group.shake { animation: shake 0.32s ease-out; }
+  @keyframes shake { 0%,100%{transform:translateX(0) rotate(0);} 20%{transform:translateX(-5px) rotate(-3deg);} 40%{transform:translateX(5px) rotate(3deg);} 60%{transform:translateX(-3px) rotate(-1.5deg);} 80%{transform:translateX(3px) rotate(1.5deg);} }
+  #egg-wrap.breaking #egg-svg { animation: break-out 0.4s forwards; }
+  @keyframes break-out { to { transform: scale(0) rotate(30deg); opacity: 0; } }
+  #egg-wrap.appearing #egg-svg { animation: appear-in 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+  @keyframes appear-in { 0%{transform:scale(0);opacity:0;} 100%{transform:scale(1);opacity:1;} }
+  #egg-aura { animation: aura-rotate 12s linear infinite; transform-origin: 100px 130px; }
+  @keyframes aura-rotate { to { transform: rotate(360deg); } }
+
+  .egg-stage { margin-top: 4px; }
+  .egg-level-badge { display: inline-block; background: linear-gradient(90deg, #fbbf24, #f59e0b); color: #fff; font-weight: 800; font-size: 11px; padding: 3px 10px; border-radius: 20px; box-shadow: 0 2px 8px rgba(245,158,11,0.4); }
+  #idle-level-name { font-size: 11px; color: #64748b; margin-top: 4px; font-weight: 600; }
+  .egg-progress-wrap { max-width: 360px; margin: 6px auto 0; }
+  .egg-progress { height: 12px; background: #e2e8f0; border-radius: 8px; overflow: hidden; }
+  #egg-progress-fill { height: 100%; background: linear-gradient(90deg, #fbbf24, #f59e0b); transition: width 0.3s ease; }
+  .egg-progress-text { font-size: 10px; color: #64748b; text-align: center; margin-top: 3px; font-weight: 600; }
+
+  #combo-bar { height: 5px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin: 5px auto 0; max-width: 360px; }
+  #combo-fill { height: 100%; background: linear-gradient(90deg, #f43f5e, #fb923c); width: 0%; transition: width 0.1s linear; }
+  #combo-text { font-size: 11px; font-weight: 800; color: #f43f5e; margin-top: 2px; text-align: center; min-height: 14px; }
+  .bonus-tags { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+  .bonus-tag { background: rgba(255,255,255,0.75); border: 1px solid #fbbf24; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; }
+
+  /* Золотое яйцо */
+  #golden-egg {
+    position: fixed; width: 64px; height: 64px; cursor: pointer;
+    z-index: 1500; font-size: 48px; text-align: center; line-height: 64px;
+    filter: drop-shadow(0 0 20px rgba(251,191,36,0.9));
+    animation: golden-wobble 0.8s ease-in-out infinite;
+    transition: opacity 0.3s;
+  }
+  @keyframes golden-wobble { 0%,100%{transform:rotate(-8deg) scale(1);} 50%{transform:rotate(8deg) scale(1.08);} }
+
+  /* Осколки и всплывающий текст */
+  .shard { position: absolute; width: 8px; height: 11px; clip-path: polygon(50% 0, 100% 100%, 0 100%); pointer-events: none; z-index: 5; animation: shard-fly 0.85s ease-out forwards; }
+  @keyframes shard-fly { 0%{transform:translate(0,0) rotate(0);opacity:1;} 100%{transform:translate(var(--tx),var(--ty)) rotate(var(--rot));opacity:0;} }
+  .float-text { position: absolute; font-weight: 900; font-size: 20px; color: #16a34a; pointer-events: none; animation: float-up 1s ease-out forwards; z-index: 10; text-shadow: 0 2px 6px rgba(22,163,74,0.3); white-space: nowrap; }
+  .float-text.crit { color: #dc2626; font-size: 26px; text-shadow: 0 2px 10px rgba(220,38,38,0.5); }
+  .float-text.auto { color: #0ea5e9; font-size: 14px; }
+  @keyframes float-up { 0%{opacity:1;transform:translateY(0) scale(1);} 100%{opacity:0;transform:translateY(-80px) scale(0.65);} }
+
+  /* Магазин */
+  .buy-mode { display: flex; gap: 4px; background: #f1f5f9; padding: 4px; border-radius: 10px; margin-bottom: 10px; max-width: 220px; margin-left: auto; margin-right: auto; }
+  .buy-btn { flex: 1; padding: 7px; border: none; background: transparent; border-radius: 7px; font-weight: 800; font-size: 12px; color: #64748b; cursor: pointer; font-family: inherit; }
+  .buy-btn.active { background: #fff; color: #e61f71; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .upgrade { display: flex; align-items: center; gap: 10px; padding: 9px; background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; margin-bottom: 7px; }
+  .upgrade.affordable { border-color: #16da44; background: linear-gradient(135deg, #f0fdf4, #fff); }
+  .upgrade.maxed { opacity: 0.55; }
+  .upgrade-icon { font-size: 26px; flex-shrink: 0; }
+  .upgrade-info { flex: 1; min-width: 0; }
+  .upgrade-name { font-weight: 800; font-size: 13px; }
+  .upgrade-desc { font-size: 11px; color: #64748b; margin-top: 1px; }
+  .upgrade-level { font-size: 10px; font-weight: 700; color: #6366f1; margin-top: 1px; }
+  .upgrade-buy { flex-shrink: 0; padding: 7px 9px; border: none; border-radius: 10px; background: #e2e8f0; color: #94a3b8; font-weight: 800; font-size: 11px; cursor: not-allowed; font-family: inherit; min-width: 74px; text-align: center; line-height: 1.2; }
+  .upgrade.affordable .upgrade-buy { background: linear-gradient(135deg, #16da44, #08c534); color: #fff; cursor: pointer; }
+  .upgrade.maxed .upgrade-buy { background: #94a3b8; color: #fff; }
+
+  /* Достижения */
+  .ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
+  .ach { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; padding: 6px 3px; text-align: center; font-size: 9px; color: #64748b; transition: all 0.2s; line-height: 1.2; }
+  .ach.unlocked { background: linear-gradient(135deg, #fef3c7, #fde68a); border-color: #fbbf24; color: #92400e; font-weight: 700; }
+  .ach-icon { font-size: 20px; display: block; margin-bottom: 2px; filter: grayscale(1); opacity: 0.5; }
+  .ach.unlocked .ach-icon { filter: none; opacity: 1; }
+
+  /* Ежедневный бонус */
+  .daily-panel { background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border: 2px solid #0ea5e9; border-radius: 12px; padding: 12px; margin-bottom: 12px; text-align: center; }
+  .daily-panel h4 { color: #0369a1; font-size: 13px; margin-bottom: 3px; }
+  .daily-panel p { font-size: 11px; color: #075985; margin-bottom: 8px; }
+  .daily-panel button { padding: 9px 18px; border: none; border-radius: 8px; background: linear-gradient(90deg, #0ea5e9, #0284c7); color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .daily-panel button:disabled { background: #cbd5e1; color: #94a3b8; cursor: not-allowed; }
+
+  /* Престиж */
+  .prestige-panel { background: linear-gradient(135deg, #fef3c7, #fde68a); border: 2px solid #fbbf24; border-radius: 12px; padding: 12px; margin-top: 12px; }
+  .prestige-panel h4 { font-size: 13px; color: #92400e; margin-bottom: 4px; }
+  .prestige-panel p { font-size: 11px; color: #78350f; margin-bottom: 8px; }
+  .prestige-panel button { width: 100%; padding: 10px; border: none; border-radius: 8px; background: linear-gradient(90deg, #f59e0b, #d97706); color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .prestige-panel button:disabled { background: #cbd5e1; color: #94a3b8; cursor: not-allowed; }
+
+  .btn-reset { display: block; width: 100%; padding: 11px; margin-top: 10px; border: none; border-radius: 10px; background: #e61f71; color: #fff; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+
+  /* Модалка */
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 16px; }
+  .modal.show { display: flex; }
+  .modal-content { background: #fff; border-radius: 14px; padding: 20px; max-width: 340px; width: 100%; text-align: center; }
+  .modal-content h3 { font-size: 1.1rem; margin-bottom: 6px; }
+  .modal-content p { font-size: 12px; color: #64748b; margin-bottom: 12px; }
+  .modal-content input { width: 100%; padding: 10px; font-size: 14px; border: 2px solid #e2e8f0; border-radius: 8px; font-family: inherit; margin-bottom: 8px; outline: none; }
+  .modal-content .btn-primary { width: 100%; padding: 11px; font-size: 14px; font-weight: 700; border: none; border-radius: 8px; background: linear-gradient(90deg, #ff5a01, #e61f71); color: #fff; cursor: pointer; font-family: inherit; }
+  .modal-content .btn-secondary { width: 100%; padding: 9px; margin-top: 6px; font-size: 12px; border: none; border-radius: 8px; background: #f1f5f9; color: #475569; cursor: pointer; font-family: inherit; font-weight: 600; }
+  .modal-content .err { color: #dc2626; font-size: 11px; margin-bottom: 6px; min-height: 14px; text-align: left; }
+
+  #hatch-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 3000; padding: 20px; }
+  #hatch-overlay.show { display: flex; }
+  .hatch-card { background: #fff; border-radius: 20px; padding: 26px 20px; text-align: center; max-width: 320px; animation: pop-in 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+  @keyframes pop-in { 0%{transform:scale(0.3);opacity:0;} 100%{transform:scale(1);opacity:1;} }
+  .hatch-emoji { font-size: 64px; display: block; margin-bottom: 6px; animation: bird-bounce 1s ease-in-out infinite; }
+  @keyframes bird-bounce { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);} }
+  .hatch-card h3 { font-size: 1.3rem; color: #e61f71; margin-bottom: 4px; }
+  .hatch-card p { font-size: 13px; color: #64748b; margin-bottom: 14px; }
+  .hatch-card button { width: 100%; padding: 11px; border: none; border-radius: 10px; background: linear-gradient(90deg, #ff5a01, #e61f71); color: #fff; font-weight: 800; font-size: 14px; cursor: pointer; font-family: inherit; }
+
+  #toast { position: fixed; top: calc(20px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%) translateY(-120px); background: linear-gradient(90deg, #ff5a01, #e61f71); color: #fff; padding: 10px 20px; border-radius: 30px; font-weight: 700; font-size: 13px; box-shadow: 0 8px 30px rgba(230,31,113,0.4); transition: transform 0.4s; z-index: 3001; max-width: 90vw; text-align: center; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  .banner { background: #fef3c7; border: 1px solid #fbbf24; color: #92400e; padding: 8px 12px; border-radius: 10px; font-size: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .banner button { border: none; background: #92400e; color: #fff; padding: 5px 9px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🥚 Фарм-Яйцо</h1>
+  <p>Бей яйцо — фарми монеты — попадай в топ</p>
+</div>
+
+<div class="container">
+
+  <div class="banner hidden" id="offline-banner">
+    <span>⚠️ Топ не подключён — играй локально. Настрой Firebase для рейтинга.</span>
+    <button id="banner-hide">Скрыть</button>
+  </div>
+
+  <!-- Профиль -->
+  <div class="profile">
+    <div class="avatar" id="my-avatar">
+      <span class="init" id="my-avatar-init">?</span>
+    </div>
+    <div class="profile-info">
+      <div class="profile-name" id="my-nick">Гость</div>
+      <div class="profile-meta" id="my-meta">Место: — · 0 🪙</div>
+    </div>
+    <div class="profile-actions">
+      <button id="nick-edit" class="secondary">✏️</button>
+      <button id="share-btn">📤</button>
+    </div>
+  </div>
+
+  <!-- Топ -->
+  <div class="panel">
+    <h3>🏆 Топ игроков <span id="lb-count" style="color:#94a3b8;font-weight:600;font-size:11px;"></span></h3>
+    <div id="lb-status">Загрузка…</div>
+    <div class="lb-podium" id="lb-podium"></div>
+    <ol id="lb-list"></ol>
+  </div>
+
+  <!-- Ежедневный бонус -->
+  <div class="daily-panel">
+    <h4>🎁 Ежедневный бонус</h4>
+    <p id="daily-desc">Заходи каждый день — ×2 к фарму на 10 минут</p>
+    <button id="daily-btn">Забрать ×2</button>
+  </div>
+
+  <!-- Игра -->
+  <div class="egg-hero" id="egg-area">
+    <div class="egg-coins"><span id="idle-coins-count">0</span> <span class="unit">🪙</span></div>
+    <div class="egg-rates">
+      <span class="green">⚡ <b id="idle-click-power">+2</b>/удар</span>
+      <span>🐦 <b id="idle-auto-rate">0</b>/сек</span>
+      <span class="crit">💥 <b id="idle-crit-chance">0%</b></span>
+    </div>
+
+    <div id="egg-wrap">
+      <svg id="egg-svg" viewBox="0 0 200 240" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <radialGradient id="eggGrad" cx="40%" cy="30%" r="75%">
+            <stop offset="0%" stop-color="#e2e8f0"/>
+            <stop offset="55%" stop-color="#94a3b8"/>
+            <stop offset="100%" stop-color="#475569"/>
+          </radialGradient>
+        </defs>
+        <ellipse cx="100" cy="230" rx="52" ry="6" fill="rgba(0,0,0,0.18)"/>
+        <g id="egg-aura" opacity="0">
+          <ellipse cx="100" cy="130" rx="98" ry="112" fill="none" stroke="#fbbf24" stroke-width="3" stroke-dasharray="10 14" stroke-linecap="round"/>
+        </g>
+        <g id="egg-group">
+          <path id="egg-shape" d="M 100,18 C 60,18 32,90 32,150 C 32,205 60,228 100,228 C 140,228 168,205 168,150 C 168,90 140,18 100,18 Z" fill="url(#eggGrad)" stroke="rgba(0,0,0,0.12)" stroke-width="1.5"/>
+          <ellipse cx="72" cy="82" rx="12" ry="22" fill="rgba(255,255,255,0.42)" transform="rotate(-18 72 82)"/>
+          <ellipse cx="78" cy="88" rx="4" ry="9" fill="rgba(255,255,255,0.65)" transform="rotate(-18 78 88)"/>
+        </g>
+        <g id="egg-cracks" stroke="#0f172a" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"></g>
+        <g id="egg-crown" opacity="0" transform="translate(100, 6)">
+          <path d="M -30,-6 L -22,-32 L -8,-18 L 0,-36 L 8,-18 L 22,-32 L 30,-6 Z" fill="#fbbf24" stroke="#d97706" stroke-width="1.5" stroke-linejoin="round"/>
+          <circle cx="-22" cy="-30" r="2.5" fill="#f43f5e"/>
+          <circle cx="0" cy="-33" r="2.5" fill="#0ea5e9"/>
+          <circle cx="22" cy="-30" r="2.5" fill="#f43f5e"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="egg-stage">
+      <span class="egg-level-badge">Стадия <span id="idle-level-num">1</span></span>
+      <div id="idle-level-name">Каменное яйцо</div>
+    </div>
+
+    <div class="egg-progress-wrap">
+      <div class="egg-progress"><div id="egg-progress-fill" style="width:0%"></div></div>
+      <div class="egg-progress-text" id="egg-progress-text">0 / 100 🪙</div>
+    </div>
+
+    <div id="combo-bar"><div id="combo-fill"></div></div>
+    <div id="combo-text"></div>
+    <div class="bonus-tags" id="bonus-tags"></div>
+  </div>
+
+  <!-- Магазин -->
+  <div class="panel">
+    <h3>🛒 Улучшения</h3>
+    <div class="buy-mode" id="buy-mode">
+      <button class="buy-btn active" data-mode="1">×1</button>
+      <button class="buy-btn" data-mode="10">×10</button>
+      <button class="buy-btn" data-mode="max">MAX</button>
+    </div>
+
+    <div class="upgrade" id="up-click">
+      <div class="upgrade-icon">👊</div>
+      <div class="upgrade-info"><div class="upgrade-name">Сила удара</div><div class="upgrade-desc" id="up-click-desc">+2 за клик</div><div class="upgrade-level">Ур: <span id="up-click-lv">0</span></div></div>
+      <button class="upgrade-buy" data-up="click">×1<br><span id="up-click-cost">15</span></button>
+    </div>
+    <div class="upgrade" id="up-auto">
+      <div class="upgrade-icon">🐦</div>
+      <div class="upgrade-info"><div class="upgrade-name">Птица-клеватель</div><div class="upgrade-desc" id="up-auto-desc">+1 / сек</div><div class="upgrade-level">Ур: <span id="up-auto-lv">0</span></div></div>
+      <button class="upgrade-buy" data-up="auto">×1<br><span id="up-auto-cost">100</span></button>
+    </div>
+    <div class="upgrade" id="up-multi">
+      <div class="upgrade-icon">✨</div>
+      <div class="upgrade-info"><div class="upgrade-name">Золотая скорлупа</div><div class="upgrade-desc" id="up-multi-desc">+15% ко всему</div><div class="upgrade-level">Ур: <span id="up-multi-lv">0</span></div></div>
+      <button class="upgrade-buy" data-up="multi">×1<br><span id="up-multi-cost">1000</span></button>
+    </div>
+    <div class="upgrade" id="up-crit">
+      <div class="upgrade-icon">💥</div>
+      <div class="upgrade-info"><div class="upgrade-name">Критический удар</div><div class="upgrade-desc" id="up-crit-desc">+2% шанс ×10</div><div class="upgrade-level">Ур: <span id="up-crit-lv">0</span></div></div>
+      <button class="upgrade-buy" data-up="crit">×1<br><span id="up-crit-cost">500</span></button>
+    </div>
+    <div class="upgrade" id="up-combo">
+      <div class="upgrade-icon">🔥</div>
+      <div class="upgrade-info"><div class="upgrade-name">Комбо-удар</div><div class="upgrade-desc" id="up-combo-desc">+5% за клик</div><div class="upgrade-level">Ур: <span id="up-combo-lv">0</span></div></div>
+      <button class="upgrade-buy" data-up="combo">×1<br><span id="up-combo-cost">800</span></button>
+    </div>
+    <div class="upgrade" id="up-offline">
+      <div class="upgrade-icon">💤</div>
+      <div class="upgrade-info"><div class="upgrade-name">Сонный фарм</div><div class="upgrade-desc" id="up-offline-desc">+10% офлайн</div><div class="upgrade-level">Ур: <span id="up-offline-lv">0</span></div></div>
+      <button class="upgrade-buy" data-up="offline">×1<br><span id="up-offline-cost">2000</span></button>
+    </div>
+  </div>
+
+  <!-- Достижения -->
+  <div class="panel">
+    <h3>🏅 Достижения <span id="ach-counter" style="color:#f59e0b;"></span></h3>
+    <div class="ach-grid" id="ach-grid"></div>
+  </div>
+
+  <!-- Престиж -->
+  <div class="prestige-panel">
+    <h4>🐣 Вылупление</h4>
+    <p>Каждое очко даёт <b>+25% к фарму</b> навсегда. Нужно 1 000 000 монет за всё время.</p>
+    <div style="font-size:12px;color:#78350f;margin-bottom:8px;">
+      Доступно: <b id="idle-prestige-available">0</b> · Всего: <b id="idle-prestige-total">0</b>
+    </div>
+    <button id="idle-prestige-btn" disabled>Вылупить</button>
+  </div>
+
+  <button class="btn-reset" id="idle-reset">Полный сброс прогресса</button>
+</div>
+
+<div id="golden-egg" style="display:none;">🥚</div>
+
+<div class="modal" id="nick-modal">
+  <div class="modal-content">
+    <h3>Ваш никнейм</h3>
+    <p>Будет виден в общем топе</p>
+    <input type="text" id="nick-input" maxlength="20" placeholder="Например, Фармер" autocomplete="off">
+    <div class="err" id="nick-err"></div>
+    <button class="btn-primary" id="nick-save">Сохранить</button>
+    <button class="btn-secondary" id="nick-later">Отмена</button>
+  </div>
+</div>
+
+<div id="hatch-overlay">
+  <div class="hatch-card">
+    <span class="hatch-emoji">🐣</span>
+    <h3>Вылупилось!</h3>
+    <p id="hatch-text">Птенец приносит бонус навсегда</p>
+    <button id="hatch-ok">Продолжить</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<script>
+/* ============================================================
+   FIREBASE CONFIG — замените на свои значения
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+const FIREBASE_CONFIGURED = !String(firebaseConfig.apiKey).startsWith("YOUR_");
+const FIREBASE_SDK_LOADED = typeof firebase !== 'undefined';
+
+/* ============================================================
+   TELEGRAM WEBAPP
+   ============================================================ */
+const tg = window.Telegram?.WebApp;
+let tgUser = null;
+let photoUrl = '';
+
+if (tg) {
+  try {
+    tg.ready();
+    tg.expand();
+    tg.setHeaderColor?.('#ff5a01');
+    tg.setBackgroundColor?.('#ffffff');
+    tg.disableVerticalSwipes?.();
+    tgUser = tg.initDataUnsafe?.user || null;
+    if (tgUser) {
+      photoUrl = tgUser.photo_url || '';
+    }
+  } catch(e) { console.warn('Telegram init:', e); }
+}
+
+/* ============================================================
+   СОСТОЯНИЕ
+   ============================================================ */
+let fbApp = null, fbAuth = null, fbDb = null, currentUser = null;
+let onlineMode = false;
+let playerKey = null;
+let lbUnsubscribe = null;
+let nickname = '';
+const NICK_KEY = 'egg-nickname';
+
+const $ = id => document.getElementById(id);
+const toast = $('toast');
+let toastTimer = null;
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+/* ============================================================
+   ПРОФИЛЬ / НИК / АВАТАРКА
+   ============================================================ */
+function setAvatar(el, url, name) {
+  el.innerHTML = '';
+  const init = document.createElement('span');
+  init.className = 'init';
+  init.textContent = (name || '?').trim().charAt(0).toUpperCase() || '?';
+  el.appendChild(init);
+
+  if (url) {
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = '';
+    img.onerror = () => img.remove();
+    img.onload = () => { init.style.display = 'none'; };
+    el.appendChild(img);
+  }
+}
+
+function updateMyProfile() {
+  const displayName = nickname || (tgUser?.first_name) || 'Гость';
+  $('my-nick').textContent = displayName + (tgUser?.username ? ' @' + tgUser.username : '');
+
+  const av = $('my-avatar');
+  setAvatar(av, photoUrl, displayName);
+}
+
+function loadNickname() {
+  if (tgUser) {
+    nickname = tgUser.first_name || tgUser.username || 'Игрок';
+    if (tgUser.last_name) nickname += ' ' + tgUser.last_name;
+  } else {
+    nickname = localStorage.getItem(NICK_KEY) || '';
+  }
+  updateMyProfile();
+}
+
+function openNickModal() {
+  $('nick-modal').classList.add('show');
+  $('nick-input').value = nickname;
+  $('nick-err').textContent = '';
+  setTimeout(() => $('nick-input').focus(), 50);
+}
+function closeNickModal() { $('nick-modal').classList.remove('show'); }
+function validateNick(s) {
+  s = s.trim();
+  if (s.length < 2) return 'Минимум 2 символа';
+  if (s.length > 20) return 'Максимум 20 символов';
+  if (!/^[a-zA-Zа-яА-Я0-9_\- ]+$/.test(s)) return 'Только буквы, цифры, _, - и пробел';
+  return '';
+}
+function saveNickname() {
+  const val = $('nick-input').value.trim();
+  const err = validateNick(val);
+  if (err) { $('nick-err').textContent = err; return; }
+  nickname = val;
+  if (!tgUser) localStorage.setItem(NICK_KEY, nickname);
+  updateMyProfile();
+  closeNickModal();
+  showToast('Ник сохранён: ' + nickname);
+  syncLeaderboard();
+}
+
+/* ============================================================
+   FIREBASE
+   ============================================================ */
+function setLbStatus(text, isError) {
+  const s = $('lb-status');
+  s.textContent = text;
+  s.className = isError ? 'error' : '';
+  s.style.display = 'block';
+}
+
+async function initFirebase() {
+  if (!FIREBASE_CONFIGURED) {
+    setLbStatus('Онлайн-топ не настроен. Игра работает локально.', true);
+    $('offline-banner').classList.remove('hidden');
+    return;
+  }
+  if (!FIREBASE_SDK_LOADED) {
+    setLbStatus('Firebase SDK не загрузился.', true);
+    $('offline-banner').classList.remove('hidden');
+    return;
+  }
+  try {
+    fbApp = firebase.initializeApp(firebaseConfig);
+    fbAuth = firebase.auth();
+    fbDb = firebase.database();
+
+    fbAuth.onAuthStateChanged(user => {
+      if (user) {
+        currentUser = user;
+        onlineMode = true;
+        // Ключ: для Telegram — tg_<id>, для браузера — firebase uid
+        playerKey = tgUser ? ('tg_' + tgUser.id) : user.uid;
+        subscribeLeaderboard();
+        syncLeaderboard();
+      }
+    });
+
+    await fbAuth.signInAnonymously();
+    setLbStatus('Загрузка топа…');
+  } catch (e) {
+    console.error(e);
+    onlineMode = false;
+    setLbStatus('Ошибка Firebase: ' + e.message + '. Игра работает локально.', true);
+    $('offline-banner').classList.remove('hidden');
+  }
+}
+
+function subscribeLeaderboard() {
+  if (!fbDb) return;
+  if (lbUnsubscribe) lbUnsubscribe();
+  const ref = fbDb.ref('players').orderByChild('totalCoins').limitToLast(20);
+  const cb = ref.on('value', snap => {
+    const list = [];
+    snap.forEach(c => list.push({ uid: c.key, ...c.val() }));
+    list.sort((a, b) => (b.totalCoins || 0) - (a.totalCoins || 0));
+    renderLeaderboard(list);
+  }, err => setLbStatus('Ошибка: ' + err.message, true));
+  lbUnsubscribe = () => ref.off('value', cb);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtNum(v) {
+  v = v || 0;
+  if (v < 1000) return Math.floor(v).toString();
+  if (v < 1e6) return (v/1000).toFixed(v<10000?1:0)+'K';
+  if (v < 1e9) return (v/1e6).toFixed(v<1e7?2:1)+'M';
+  if (v < 1e12) return (v/1e9).toFixed(2)+'B';
+  if (v < 1e15) return (v/1e12).toFixed(2)+'T';
+  return (v/1e15).toFixed(2)+'Qa';
+}
+
+function renderLeaderboard(list) {
+  const statusEl = $('lb-status');
+  const podiumEl = $('lb-podium');
+  const olEl = $('lb-list');
+  const countEl = $('lb-count');
+
+  if (!list.length) {
+    statusEl.textContent = 'Пока никого нет. Стань первым!';
+    statusEl.style.display = 'block';
+    podiumEl.innerHTML = '';
+    olEl.innerHTML = '';
+    countEl.textContent = '';
+    return;
+  }
+  statusEl.style.display = 'none';
+  countEl.textContent = '· ' + list.length;
+
+  const medals = ['🥇','🥈','🥉'];
+  podiumEl.innerHTML = list.slice(0, 3).map((p, i) => {
+    const cls = ['gold','silver','bronze'][i];
+    return `<div class="pod ${cls}">
+      <span class="medal">${medals[i]}</span>
+      <div class="avatar" data-avatar="${escapeHtml(p.photo||'')}" data-name="${escapeHtml(p.nick||'И')}"></div>
+      <div class="nick">${escapeHtml(p.nick||'Игрок')}</div>
+      <div class="money">${fmtNum(p.totalCoins||0)} 🪙</div>
+      <div class="stage">Стадия ${(p.stage||1)}</div>
+    </div>`;
+  }).join('');
+
+  olEl.innerHTML = list.map((p, i) => {
+    const isSelf = playerKey && p.uid === playerKey;
+    return `<li class="${isSelf?'self':''}">
+      <span class="place ${i<3?'top':''}">${i+1}</span>
+      <div class="avatar" data-avatar="${escapeHtml(p.photo||'')}" data-name="${escapeHtml(p.nick||'И')}"></div>
+      <div class="info">
+        <div class="nick">${escapeHtml(p.nick||'Игрок')}${isSelf?' (вы)':''}</div>
+        <div class="sub">Стадия ${p.stage||1} · Престиж ${p.prestige||0}</div>
+      </div>
+      <span class="money">${fmtNum(p.totalCoins||0)} 🪙</span>
+    </li>`;
+  }).join('');
+
+  // Аватарки
+  document.querySelectorAll('[data-avatar]').forEach(el => {
+    const url = el.dataset.avatar;
+    const name = el.dataset.name;
+    setAvatar(el, url, name);
+  });
+
+  // Обновляем своё место
+  if (playerKey) {
+    const myIdx = list.findIndex(p => p.uid === playerKey);
+    if (myIdx >= 0) {
+      const me = list[myIdx];
+      $('my-meta').textContent = `Место: #${myIdx+1} из ${list.length} · ${fmtNum(me.totalCoins||0)} 🪙`;
+    }
+  }
+}
+
+async function syncLeaderboard() {
+  if (!onlineMode || !fbDb || !playerKey) return;
+  const ref = fbDb.ref('players/' + playerKey);
+  try {
+    await ref.transaction(cur => {
+      if (cur === null) cur = { nick: nickname, photo: photoUrl, tgId: tgUser?.id || null, totalCoins: 0, prestige: 0, stage: 1, goldenCaught: 0, updated: Date.now() };
+      cur.totalCoins = Math.max(cur.totalCoins || 0, Math.floor(idle.totalCoins));
+      cur.prestige = Math.max(cur.prestige || 0, idle.prestige);
+      cur.goldenCaught = Math.max(cur.goldenCaught || 0, idle.goldenCaught);
+      cur.stage = Math.max(cur.stage || 1, getStageIndex() + 1);
+      if (nickname) cur.nick = nickname;
+      if (photoUrl) cur.photo = photoUrl;
+      if (tgUser?.id) cur.tgId = tgUser.id;
+      cur.updated = Date.now();
+      return cur;
+    });
+  } catch(e) { console.warn('Sync:', e); }
+}
+
+/* ============================================================
+   ИГРА
+   ============================================================ */
+const IDLE_KEY = 'egg-farm-tg-v1';
+
+const STAGES = [
+  {min:0,         name:'Каменное яйцо',      top:'#e2e8f0',mid:'#94a3b8',bot:'#475569',crown:false,aura:false},
+  {min:100,       name:'Обычное яйцо',       top:'#fffbeb',mid:'#fde68a',bot:'#f59e0b',crown:false,aura:false},
+  {min:1000,      name:'Бронзовое яйцо',     top:'#fed7aa',mid:'#d97706',bot:'#92400e',crown:false,aura:false},
+  {min:5000,      name:'Серебряное яйцо',    top:'#f8fafc',mid:'#cbd5e1',bot:'#64748b',crown:false,aura:false},
+  {min:25000,     name:'Золотое яйцо',       top:'#fef9c3',mid:'#fbbf24',bot:'#b45309',crown:false,aura:true},
+  {min:100000,    name:'Изумрудное яйцо',    top:'#d1fae5',mid:'#10b981',bot:'#065f46',crown:false,aura:false},
+  {min:500000,    name:'Рубиновое яйцо',     top:'#fee2e2',mid:'#ef4444',bot:'#991b1b',crown:false,aura:false},
+  {min:2500000,   name:'Сапфировое яйцо',    top:'#dbeafe',mid:'#3b82f6',bot:'#1e3a8a',crown:false,aura:true},
+  {min:10000000,  name:'Алмазное яйцо',      top:'#f0f9ff',mid:'#bae6fd',bot:'#0284c7',crown:false,aura:true},
+  {min:100000000, name:'Божественное яйцо',  top:'#fef9c3',mid:'#fde047',bot:'#ca8a04',crown:true,aura:true}
+];
+
+const CRACKS = [
+  'M 100,25 L 94,48 L 103,62 L 96,78',
+  'M 44,140 L 64,135 L 74,148 L 92,140',
+  'M 156,118 L 138,128 L 128,116 L 112,126',
+  'M 100,222 L 104,202 L 95,188 L 101,172',
+  'M 58,80 L 78,96 L 72,112 L 92,118',
+  'M 142,88 L 122,104 L 128,122 L 114,132'
+];
+const CRACK_TH = [0.10,0.25,0.40,0.55,0.70,0.85];
+
+const UPGRADES = {
+  click:   {name:'Сила удара',       baseCost:15,   growth:1.4, maxLv:9999, desc:lv=>`+${lv*2} за клик`},
+  auto:    {name:'Птица-клеватель',  baseCost:100,  growth:1.5, maxLv:9999, desc:lv=>`+${lv} / сек`},
+  multi:   {name:'Золотая скорлупа', baseCost:1000, growth:1.9, maxLv:9999, desc:lv=>`+${lv*15}% ко всему`},
+  crit:    {name:'Критический удар', baseCost:500,  growth:1.7, maxLv:25,   desc:lv=>`+${lv*2}% шанс ×10`},
+  combo:   {name:'Комбо-удар',       baseCost:800,  growth:1.8, maxLv:99,   desc:lv=>`+${lv*5}% за клик`},
+  offline: {name:'Сонный фарм',      baseCost:2000, growth:1.6, maxLv:7,    desc:lv=>`+${lv*10}% офлайн`}
+};
+
+const ACHIEVEMENTS = [
+  {id:'c1',  icon:'👆', name:'Первый клик',        cond:s=>s.totalClicks>=1,           bonus:0.01},
+  {id:'c100',icon:'💯', name:'Сотня',              cond:s=>s.totalClicks>=100,         bonus:0.02},
+  {id:'c1k', icon:'🔥', name:'Тысяча',             cond:s=>s.totalClicks>=1000,        bonus:0.03},
+  {id:'c10k',icon:'⚡', name:'Десятка',            cond:s=>s.totalClicks>=10000,       bonus:0.05},
+  {id:'u1',  icon:'🛒', name:'Шопоголик',          cond:s=>totalUpg(s)>=1,             bonus:0.01},
+  {id:'u10', icon:'🛍️', name:'Торговец',           cond:s=>totalUpg(s)>=10,            bonus:0.03},
+  {id:'u25', icon:'🏪', name:'Магнат',             cond:s=>totalUpg(s)>=25,            bonus:0.05},
+  {id:'s2',  icon:'🥚', name:'Проклюнулось',       cond:s=>stageIdxOf(s)>=1,           bonus:0.02},
+  {id:'s5',  icon:'🐣', name:'Золотая лихорадка',  cond:s=>stageIdxOf(s)>=4,           bonus:0.05},
+  {id:'s10', icon:'👑', name:'Божественный',       cond:s=>stageIdxOf(s)>=9,           bonus:0.10},
+  {id:'p1',  icon:'🌱', name:'Вылупился',          cond:s=>s.prestige>=1,              bonus:0.05},
+  {id:'p10', icon:'🌳', name:'Фермер',             cond:s=>s.prestige>=10,             bonus:0.10},
+  {id:'g5',  icon:'⭐', name:'Охотник за золотом', cond:s=>s.goldenCaught>=5,          bonus:0.03}
+];
+
+function totalUpg(s){return s.upgrades.click+s.upgrades.auto+s.upgrades.multi+s.upgrades.crit+s.upgrades.combo+s.upgrades.offline;}
+function stageIdxOf(s){let idx=0;for(let i=0;i<STAGES.length;i++){if(s.totalCoins>=STAGES[i].min)idx=i;else break;}return idx;}
+function getAchBonus(s){return ACHIEVEMENTS.filter(a=>a.cond(s)).reduce((sum,a)=>sum+a.bonus,0);}
+
+function defaultIdle(){
+  return {
+    coins:0, totalCoins:0, totalClicks:0,
+    upgrades:{click:0,auto:0,multi:0,crit:0,combo:0,offline:0},
+    prestige:0, lastStageIdx:0, goldenCaught:0,
+    lastDaily:0, dailyEndsAt:0,
+    lastSaved:Date.now(), lastTick:Date.now()
+  };
+}
+function loadIdle(){
+  try {
+    const s = JSON.parse(localStorage.getItem(IDLE_KEY) || 'null');
+    if (!s) return defaultIdle();
+    const d = defaultIdle();
+    return Object.assign(d, s, {upgrades: Object.assign(d.upgrades, s.upgrades || {})});
+  } catch { return defaultIdle(); }
+}
+function saveIdle(){
+  idle.lastSaved = Date.now();
+  idle.lastTick = Date.now();
+  localStorage.setItem(IDLE_KEY, JSON.stringify(idle));
+}
+
+let idle = loadIdle();
+let comboCount = 0, lastEggClick = 0;
+const COMBO_TIMEOUT = 1500;
+let buyMode = 1;
+
+const eggArea = $('egg-area');
+const eggWrap = $('egg-wrap');
+const eggGroup = $('egg-group');
+const eggCracks = $('egg-cracks');
+const eggAura = $('egg-aura');
+const eggCrown = $('egg-crown');
+const eggGrad = $('eggGrad');
+const goldenEggEl = $('golden-egg');
+
+function prestigeMult(){return 1+idle.prestige*0.25;}
+function stageMult(){return 1+getStageIndex()*0.5;}
+function clicksMult(){return 1+Math.log10(idle.totalClicks+1)*0.15;}
+function multiUpgMult(){return 1+idle.upgrades.multi*0.15;}
+function achMult(){return 1+getAchBonus(idle);}
+function dailyMult(){return Date.now()<idle.dailyEndsAt?2:1;}
+function goldenBoostMult(){return window._goldenBoostUntil && Date.now()<window._goldenBoostUntil ? 3 : 1;}
+
+function totalMultiplier(){
+  return prestigeMult()*stageMult()*clicksMult()*multiUpgMult()*achMult()*dailyMult()*goldenBoostMult();
+}
+function getClickValueBase(){return 2+idle.upgrades.click*2;}
+function getClickValue(){return getClickValueBase()*totalMultiplier();}
+function getAutoRate(){return idle.upgrades.auto*1*totalMultiplier();}
+function getCritChance(){return Math.min(0.5,idle.upgrades.crit*0.02);}
+function getComboBonus(){return comboCount*idle.upgrades.combo*0.05;}
+function getUpgradeCost(key){const u=UPGRADES[key];return Math.ceil(u.baseCost*Math.pow(u.growth,idle.upgrades[key]));}
+function getBulkCost(key,count){
+  let total=0;const u=UPGRADES[key];
+  for(let i=0;i<count;i++){
+    if(idle.upgrades[key]+i>=u.maxLv)break;
+    total+=Math.ceil(u.baseCost*Math.pow(u.growth,idle.upgrades[key]+i));
+  }
+  return total;
+}
+function getMaxAffordable(key){
+  let count=0,cost=0;const u=UPGRADES[key];let lv=idle.upgrades[key];
+  while(lv+count<u.maxLv){
+    const c=Math.ceil(u.baseCost*Math.pow(u.growth,lv+count));
+    if(cost+c>idle.coins)break;
+    cost+=c;count++;
+  }
+  return count;
+}
+function getStageIndex(){return stageIdxOf(idle);}
+function getStageProgress(){
+  const idx=getStageIndex();
+  if(idx>=STAGES.length-1)return 1;
+  const cur=STAGES[idx].min;const next=STAGES[idx+1].min;
+  return Math.max(0,Math.min(1,(idle.totalCoins-cur)/(next-cur)));
+}
+function getPrestigeAvailable(){return Math.floor(idle.totalCoins/1_000_000);}
+
+function renderEgg(){
+  const idx=getStageIndex();const st=STAGES[idx];
+  eggGrad.querySelectorAll('stop')[0].setAttribute('stop-color',st.top);
+  eggGrad.querySelectorAll('stop')[1].setAttribute('stop-color',st.mid);
+  eggGrad.querySelectorAll('stop')[2].setAttribute('stop-color',st.bot);
+  eggCrown.style.opacity=st.crown?'1':'0';
+  eggAura.style.opacity=st.aura?'1':'0';
+  renderCracks(getStageProgress());
+  $('idle-level-num').textContent=idx+1;
+  $('idle-level-name').textContent=st.name;
+  const prog=getStageProgress();
+  $('egg-progress-fill').style.width=(prog*100)+'%';
+  const nextMin=idx<STAGES.length-1?STAGES[idx+1].min:null;
+  $('egg-progress-text').textContent = nextMin
+    ? fmtNum(idle.totalCoins)+' / '+fmtNum(nextMin)+' 🪙'
+    : 'Максимальная стадия';
+}
+function renderCracks(progress){
+  eggCracks.innerHTML='';
+  for(let i=0;i<CRACKS.length;i++){
+    if(progress>=CRACK_TH[i]){
+      const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+      p.setAttribute('d',CRACKS[i]);
+      p.setAttribute('stroke','#0f172a');
+      p.setAttribute('stroke-width','2.4');
+      p.setAttribute('fill','none');
+      p.setAttribute('stroke-linecap','round');
+      p.setAttribute('stroke-linejoin','round');
+      eggCracks.appendChild(p);
+    }
+  }
+}
+function renderBonusTags(){
+  const tags=[];
+  if(idle.prestige>0)tags.push('✨ +'+(idle.prestige*25)+'% престиж');
+  if(getStageIndex()>0)tags.push('🥚 +'+(getStageIndex()*50)+'% стадия');
+  if(idle.upgrades.multi>0)tags.push('✨ +'+(idle.upgrades.multi*15)+'% скорлупа');
+  const ab=getAchBonus(idle);if(ab>0)tags.push('🏅 +'+Math.round(ab*100)+'%');
+  const cm=clicksMult();if(cm>1.01)tags.push('👆 ×'+cm.toFixed(2));
+  if(dailyMult()>1)tags.push('🎁 ×2');
+  if(goldenBoostMult()>1)tags.push('🌟 ×3');
+  $('bonus-tags').innerHTML=tags.map(t=>`<span class="bonus-tag">${t}</span>`).join('');
+}
+function renderAchievements(){
+  const unlocked=ACHIEVEMENTS.filter(a=>a.cond(idle));
+  $('ach-counter').textContent='('+unlocked.length+'/'+ACHIEVEMENTS.length+')';
+  $('ach-grid').innerHTML=ACHIEVEMENTS.map(a=>{
+    const isU=a.cond(idle);
+    return `<div class="ach ${isU?'unlocked':''}"><span class="ach-icon">${a.icon}</span><span>${a.name}</span></div>`;
+  }).join('');
+}
+function updateShop(){
+  for(const key of ['click','auto','multi','crit','combo','offline']){
+    const u=UPGRADES[key];const lv=idle.upgrades[key];
+    const box=$('up-'+key);const costEl=$('up-'+key+'-cost');const lvEl=$('up-'+key+'-lv');
+    const btn=box.querySelector('.upgrade-buy');
+    $('up-'+key+'-desc').textContent=u.desc(lv);
+    lvEl.textContent=lv;
+    if(lv>=u.maxLv){box.classList.add('maxed');box.classList.remove('affordable');btn.innerHTML='MAX';continue;}
+    box.classList.remove('maxed');
+    const count=buyMode==='max'?getMaxAffordable(key):buyMode;
+    const cost=count>0?getBulkCost(key,count):getUpgradeCost(key);
+    const label=buyMode==='max'?'MAX ×'+count:'×'+buyMode;
+    btn.innerHTML=label+'<br>'+fmtNum(cost);
+    box.classList.toggle('affordable',idle.coins>=cost&&count>0);
+  }
+}
+function fmtTime(ms){
+  const s=Math.floor(ms/1000);
+  const h=Math.floor(s/3600);const m=Math.floor((s%3600)/60);const sec=s%60;
+  if(h>0)return h+'ч '+m+'м';
+  if(m>0)return m+'м '+sec+'с';
+  return sec+'с';
+}
+function updateIdleUI(){
+  $('idle-coins-count').textContent=fmtNum(idle.coins);
+  $('idle-click-power').textContent='+'+fmtNum(getClickValue());
+  $('idle-auto-rate').textContent=fmtNum(getAutoRate());
+  $('idle-crit-chance').textContent=Math.round(getCritChance()*100)+'%';
+
+  const avail=getPrestigeAvailable();
+  $('idle-prestige-available').textContent=avail;
+  $('idle-prestige-total').textContent=idle.prestige;
+  const pbtn=$('idle-prestige-btn');
+  pbtn.disabled=avail<1;
+  pbtn.textContent=avail>=1?`🐣 Вылупить (+${avail} очк.)`:`Нужно ${fmtNum(Math.max(0,1_000_000-idle.totalCoins))} 🪙`;
+
+  const dailyBtn=$('daily-btn');
+  const now=Date.now();
+  if(now<idle.dailyEndsAt){
+    dailyBtn.disabled=true;dailyBtn.textContent='Активно: '+fmtTime(idle.dailyEndsAt-now);
+    $('daily-desc').textContent='×2 к фарму ещё '+fmtTime(idle.dailyEndsAt-now);
+  } else if(now-idle.lastDaily>=24*3600*1000){
+    dailyBtn.disabled=false;dailyBtn.textContent='Забрать ×2';
+    $('daily-desc').textContent='Доступен бонус ×2 на 10 минут!';
+  } else {
+    dailyBtn.disabled=true;dailyBtn.textContent='Уже забрано';
+    $('daily-desc').textContent='Следующий через '+fmtTime(24*3600*1000-(now-idle.lastDaily));
+  }
+
+  renderEgg();
+  renderBonusTags();
+  renderAchievements();
+  updateShop();
+}
+function spawnShard(x,y,color){
+  const s=document.createElement('div');s.className='shard';
+  s.style.left=x+'px';s.style.top=y+'px';s.style.background=color;
+  s.style.setProperty('--
